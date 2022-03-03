@@ -93,9 +93,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
   late final AnimationController _parentController;
   late final Animation<double> _curvedAnimation;
 
-  late Size _screenSize;
-
-  Size? _tooltipSize;
+  Size? _screenSize;
 
   bool isArrowUp = false;
 
@@ -106,6 +104,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     //
     //
 
+    final screenSize = _screenSize!;
+
     // Offset that defines how far tooltip will be placed above or
     // below showcase widget.
     final tooltipOffset = Offset(0, 15);
@@ -115,7 +115,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
 
     // Calculate maximum bottom position tooltip can have.
     final maximumAllowedBottomPosition =
-        _screenSize.height - ToolTipWidget._screenTooltipOffset;
+        screenSize.height - ToolTipWidget._screenTooltipOffset;
 
     // Calculate minimum top position tooltip can have.
     final minimumAllowedTopPosition = ToolTipWidget._screenTooltipOffset;
@@ -125,15 +125,15 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
 
     // Calculate minimum right position tooltip can have.
     final maximumAllowedRightPosition =
-        _screenSize.width - ToolTipWidget._screenTooltipOffset;
+        screenSize.width - ToolTipWidget._screenTooltipOffset;
 
     // Calculate maximum width tooltip can have.
     final maxTooltipWidth =
-        _screenSize.width - (2 * ToolTipWidget._screenTooltipOffset);
+        screenSize.width - (2 * ToolTipWidget._screenTooltipOffset);
 
     // Calculate maximum height tooltip can have.
     final maxTooltipHeight =
-        _screenSize.height - (2 * ToolTipWidget._screenTooltipOffset);
+        screenSize.height - (2 * ToolTipWidget._screenTooltipOffset);
 
     // gets the center of the showcase widget.
     var showcaseCenter = showcaseRect.center;
@@ -145,9 +145,9 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     //
 
     // Get tooltip size.
-    _tooltipSize ??= (context.findRenderObject() as RenderBox).size;
+    // _tooltipSize ??= (context.findRenderObject() as RenderBox).size;
 
-    var tooltipSize = _tooltipSize!;
+    var tooltipSize = (context.findRenderObject() as RenderBox).size;
 
     // Update size of tooltip based on defined constraints.
     tooltipSize = Size(
@@ -186,7 +186,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     // If above has move space then below then we should display tooltip
     // above showcase widget, else we should display it below showcase widget.
     //
-    var shouldPlaceAbove = (_screenSize.height -
+    var shouldPlaceAbove = (screenSize.height -
             showcaseRect.bottom -
             ToolTipWidget._screenTooltipOffset) <=
         (showcaseRect.top - ToolTipWidget._screenTooltipOffset);
@@ -261,7 +261,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
       // allowed position, then align tooltip with right position of showcase
       // widget else set right position to maximum allowed position.
       right = showcaseRect.right > maximumAllowedRightPosition &&
-              showcaseRect.right <= _screenSize.width
+              showcaseRect.right <= screenSize.width
           ? showcaseRect.right
           : maximumAllowedRightPosition;
 
@@ -322,7 +322,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     ///
     /// In short it will trigger rebuild only on first build after application
     /// run/resize.
-    if (mounted && _coords != newCoords) {
+    if (mounted) {
       setState(() {
         /// Assign calculated coordinates to [_coords] that will
         /// be reflected on UI.
@@ -367,10 +367,14 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
 
   @override
   Widget build(BuildContext context) {
-    _screenSize = MediaQuery.of(context).size;
+    final newScreenSize = MediaQuery.of(context).size;
+    final resized = _screenSize != newScreenSize;
 
-    // This will register callback on every build/rebuild.
-    WidgetsBinding.instance!.addPostFrameCallback((_) => _getPosition());
+    if (resized) {
+      _screenSize = newScreenSize;
+      // This will register callback on every build/rebuild.
+      WidgetsBinding.instance!.addPostFrameCallback((_) => _getPosition());
+    }
 
     final verticalDirection = _coords?.isArrowUp ?? true
         ? VerticalDirection.down
@@ -378,7 +382,9 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
 
     late final BoxConstraints boxConstraints;
 
-    if (_coords == null) {
+    final shouldChangeConstraints = _coords == null || resized;
+
+    if (shouldChangeConstraints) {
       boxConstraints = BoxConstraints();
     } else {
       boxConstraints = BoxConstraints(
@@ -386,6 +392,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
         maxHeight: _coords!.area.height,
       );
     }
+
+    print(_coords?.horizontalAxis.crossAxisAlignment);
 
     return Positioned(
       top: _coords?.area.top ?? 0,
@@ -423,117 +431,116 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                       ),
                     ),
                   ),
-                Column(
-                  crossAxisAlignment: _coords?.horizontalAxis ==
-                          TooltipHorizontalAxis.left
-                      ? CrossAxisAlignment.start
-                      : _coords?.horizontalAxis == TooltipHorizontalAxis.right
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  verticalDirection: verticalDirection,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    widget.container == null
-                        ? Container(
-                            child: GestureDetector(
-                              onTap: widget.onTooltipTap,
-                              child: Container(
-                                clipBehavior: Clip.hardEdge,
-                                decoration: BoxDecoration(
-                                  color: widget.tooltipColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                constraints: boxConstraints,
-                                child: Column(
-                                  crossAxisAlignment:
-                                      _coords != null && _coords!.isArrowCenter
-                                          ? CrossAxisAlignment.center
-                                          : CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Padding(
-                                      padding: widget.contentPadding ??
-                                          EdgeInsets.zero,
-                                      child: Column(
-                                        crossAxisAlignment: widget.title != null
-                                            ? CrossAxisAlignment.start
-                                            : CrossAxisAlignment.center,
-                                        children: <Widget>[
-                                          widget.title != null
-                                              ? Text(
-                                                  widget.title!,
-                                                  key: titleKey,
-                                                  style:
-                                                      widget.titleTextStyle ??
-                                                          Theme.of(context)
-                                                              .textTheme
-                                                              .headline6
-                                                              ?.merge(
-                                                                TextStyle(
-                                                                  color: widget
-                                                                      .textColor,
-                                                                ),
-                                                              ),
-                                                )
-                                              : SizedBox.shrink(),
-                                          widget.description != null
-                                              ? Text(
-                                                  widget.description!,
-                                                  key: descriptionKey,
-                                                  style: widget.descTextStyle ??
-                                                      Theme.of(context)
-                                                          .textTheme
-                                                          .subtitle2
-                                                          ?.merge(
-                                                            TextStyle(
-                                                              color: widget
-                                                                  .textColor,
-                                                            ),
+                ConstrainedBox(
+                  constraints: boxConstraints,
+                  child: widget.container == null
+                      ? Container(
+                          child: GestureDetector(
+                            onTap: widget.onTooltipTap,
+                            child: Container(
+                              clipBehavior: Clip.hardEdge,
+                              decoration: BoxDecoration(
+                                color: widget.tooltipColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: _coords
+                                        ?.horizontalAxis.crossAxisAlignment ??
+                                    CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Padding(
+                                    padding: widget.contentPadding ??
+                                        EdgeInsets.zero,
+                                    child: Column(
+                                      crossAxisAlignment: _coords
+                                              ?.horizontalAxis
+                                              .crossAxisAlignment ??
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        widget.title != null
+                                            ? Text(
+                                                widget.title!,
+                                                key: titleKey,
+                                                textAlign: _coords
+                                                        ?.horizontalAxis
+                                                        .textAlign ??
+                                                    TextAlign.start,
+                                                style: widget.titleTextStyle ??
+                                                    Theme.of(context)
+                                                        .textTheme
+                                                        .headline6
+                                                        ?.merge(
+                                                          TextStyle(
+                                                            color: widget
+                                                                .textColor,
                                                           ),
-                                                )
-                                              : SizedBox.shrink(),
-                                        ],
+                                                        ),
+                                              )
+                                            : SizedBox.shrink(),
+                                        widget.description != null
+                                            ? Text(
+                                                widget.description!,
+                                                key: descriptionKey,
+                                                textAlign: _coords
+                                                        ?.horizontalAxis
+                                                        .textAlign ??
+                                                    TextAlign.start,
+                                                style: widget.descTextStyle ??
+                                                    Theme.of(context)
+                                                        .textTheme
+                                                        .subtitle2
+                                                        ?.merge(
+                                                          TextStyle(
+                                                            color: widget
+                                                                .textColor,
+                                                          ),
+                                                        ),
+                                              )
+                                            : SizedBox.shrink(),
+                                      ],
+                                    ),
+                                  ),
+                                  if (widget.actions != null)
+                                    Padding(
+                                      padding: widget.actionsContainer
+                                              ?.containerPadding ??
+                                          EdgeInsets.zero,
+                                      child: Container(
+                                        color: widget
+                                            .actionsContainer?.containerColor,
+                                        height: widget
+                                            .actionsContainer?.containerHeight,
+                                        width: _getButtonsContainerWidth(
+                                            titleKey,
+                                            descriptionKey,
+                                            widget.actionsContainer
+                                                ?.containerWidth,
+                                            widget.contentPadding),
+                                        child: widget.actions!,
                                       ),
                                     ),
-                                    if (widget.actions != null)
-                                      Padding(
-                                        padding: widget.actionsContainer
-                                                ?.containerPadding ??
-                                            EdgeInsets.zero,
-                                        child: Container(
-                                          color: widget
-                                              .actionsContainer?.containerColor,
-                                          height: widget.actionsContainer
-                                              ?.containerHeight,
-                                          width: _getButtonsContainerWidth(
-                                              titleKey,
-                                              descriptionKey,
-                                              widget.actionsContainer
-                                                  ?.containerWidth,
-                                              widget.contentPadding),
-                                          child: widget.actions!,
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                                ],
                               ),
                             ),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              widget.container!,
-                              if (widget.actions != null)
-                                Padding(
-                                  padding: widget
-                                          .actionsContainer?.containerPadding ??
-                                      EdgeInsets.zero,
-                                  child: widget.actions!,
-                                ),
-                            ],
                           ),
-                  ],
+                        )
+                      : Column(
+                          crossAxisAlignment:
+                              _coords?.horizontalAxis.crossAxisAlignment ??
+                                  CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            widget.container!,
+                            if (widget.actions != null)
+                              Padding(
+                                padding:
+                                    widget.actionsContainer?.containerPadding ??
+                                        EdgeInsets.zero,
+                                child: widget.actions!,
+                              ),
+                          ],
+                        ),
                 ),
               ],
             ),
@@ -656,4 +663,34 @@ class _TooltipCoordinates {
 
   @override
   int get hashCode => super.hashCode;
+}
+
+extension AlignmentExtension on TooltipHorizontalAxis {
+  TextAlign get textAlign {
+    switch (this) {
+      case TooltipHorizontalAxis.left:
+        return TextAlign.start;
+      case TooltipHorizontalAxis.right:
+        return TextAlign.end;
+
+      case TooltipHorizontalAxis.center:
+        return TextAlign.center;
+      default:
+        return TextAlign.justify;
+    }
+  }
+
+  CrossAxisAlignment get crossAxisAlignment {
+    switch (this) {
+      case TooltipHorizontalAxis.left:
+        return CrossAxisAlignment.start;
+      case TooltipHorizontalAxis.right:
+        return CrossAxisAlignment.end;
+
+      case TooltipHorizontalAxis.center:
+        return CrossAxisAlignment.center;
+      default:
+        return CrossAxisAlignment.stretch;
+    }
+  }
 }
